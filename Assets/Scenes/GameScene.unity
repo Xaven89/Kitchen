@@ -745,6 +745,12 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: -570780859590196762, guid: 45c1c411f3c635842bafa0a0d925da31,
+        type: 3}
+      propertyPath: tomatoPrefab
+      value: 
+      objectReference: {fileID: 860894962381303189, guid: cc24f5e553075434e953ef58b129ca6c,
+        type: 3}
     - target: {fileID: 1175788073851672107, guid: 45c1c411f3c635842bafa0a0d925da31,
         type: 3}
       propertyPath: m_RootOrder

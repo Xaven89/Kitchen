@@ -1,30 +1,51 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEditor.Search;
 using UnityEngine;
-
-
+using UnityEngine.EventSystems;
 
 public class Player : MonoBehaviour
 {
+    public static Player Instance { get; private set; }
+
+
+    public event EventHandler<OnSelectedCounterChangedEventArgs> OnSelectedCounterChanged;
+    public class OnSelectedCounterChangedEventArgs : EventArgs
+    {
+        public ClearCounter selectedCounter;
+    }
     [SerializeField] private LayerMask countersLayermask;
     [SerializeField] private float moveSpeed = 7f;
     [SerializeField] private GameInput gameInput;
     private bool isWalking;
     private Vector3 lastInteractDir;
+    private ClearCounter selectedCounter;
     private void Update()
     {
         HandleMovement();
-        HandleInteractions();
+        HandleInteraction();
     }
 
-   
-
-    public bool IsWalking()
+    private void Awake()
     {
-        return isWalking;
+        if (Instance != null)
+            Debug.LogError("There is more than one Player instance");
+        Instance = this;
     }
 
-    private void HandleInteractions()
+    private void Start()
+    {
+        gameInput.OnInteractAction += GameInput_OnInteractAction;
+    }
+
+    private void GameInput_OnInteractAction(object sender, System.EventArgs e)
+    {
+        if (selectedCounter != null)
+            selectedCounter.Interact();
+    }
+
+    private void HandleInteraction()
     {
         float interactionDistance = 2f;
         Vector2 inputVector = gameInput.GetMovementVectorNormalized();
@@ -35,15 +56,41 @@ public class Player : MonoBehaviour
             lastInteractDir = moveDir;
         }
 
-        if (Physics.Raycast(transform.position, lastInteractDir, out RaycastHit raycastHit, interactionDistance,countersLayermask))
+        if (Physics.Raycast(transform.position, lastInteractDir, out RaycastHit raycastHit, interactionDistance, countersLayermask))
         {
-            if (raycastHit.transform.TryGetComponent(out IInteractable clearCounter))
+            if (raycastHit.transform.TryGetComponent(out ClearCounter clearCounter))
             {
-                clearCounter.Interact();
+                if (clearCounter != selectedCounter)
+                {
+                    SetSelectedCounter(clearCounter);
+                }
             }
-
+            else
+            {
+                SetSelectedCounter(null);
+            }
+        }
+        else
+        {
+            SetSelectedCounter(null);
         }
     }
+
+    private void SetSelectedCounter(ClearCounter selectedCounter)
+    {
+        this.selectedCounter = selectedCounter;
+        OnSelectedCounterChanged?.Invoke(this, new OnSelectedCounterChangedEventArgs
+        {
+            selectedCounter = selectedCounter,
+        });
+    }
+
+
+    public bool IsWalking()
+    {
+        return isWalking;
+    }
+
 
     private void HandleMovement()
     {
