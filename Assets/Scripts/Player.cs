@@ -1,3 +1,5 @@
+using Assets.Scripts;
+using Assets.Scripts.Interfaces;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -5,7 +7,7 @@ using UnityEditor.Search;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-public class Player : MonoBehaviour
+public class Player : MonoBehaviour, IKitchenObjectParent
 {
     public static Player Instance { get; private set; }
 
@@ -13,14 +15,17 @@ public class Player : MonoBehaviour
     public event EventHandler<OnSelectedCounterChangedEventArgs> OnSelectedCounterChanged;
     public class OnSelectedCounterChangedEventArgs : EventArgs
     {
-        public ClearCounter selectedCounter;
+        public BaseCounter selectedCounter;
     }
     [SerializeField] private LayerMask countersLayermask;
     [SerializeField] private float moveSpeed = 7f;
     [SerializeField] private GameInput gameInput;
-    private bool isWalking;
+    [SerializeField] private Transform KitchenObjectHoldPoint;
+    private KitchenObject kitchenObject;
+
+    private bool isWalking; 
     private Vector3 lastInteractDir;
-    private ClearCounter selectedCounter;
+    private BaseCounter selectedCounter;
     private void Update()
     {
         HandleMovement();
@@ -37,12 +42,19 @@ public class Player : MonoBehaviour
     private void Start()
     {
         gameInput.OnInteractAction += GameInput_OnInteractAction;
+        gameInput.OnInteractAlternateAction += GameInput_OnInteractAlternateAction;
+    }
+
+    private void GameInput_OnInteractAlternateAction(object sender, EventArgs e)
+    {
+        if (selectedCounter != null)
+            selectedCounter.InteractAlternate(this);
     }
 
     private void GameInput_OnInteractAction(object sender, System.EventArgs e)
     {
         if (selectedCounter != null)
-            selectedCounter.Interact();
+            selectedCounter.Interact(this);
     }
 
     private void HandleInteraction()
@@ -58,11 +70,11 @@ public class Player : MonoBehaviour
 
         if (Physics.Raycast(transform.position, lastInteractDir, out RaycastHit raycastHit, interactionDistance, countersLayermask))
         {
-            if (raycastHit.transform.TryGetComponent(out ClearCounter clearCounter))
+            if (raycastHit.transform.TryGetComponent(out BaseCounter baseCounter))
             {
-                if (clearCounter != selectedCounter)
+                if (baseCounter != selectedCounter)
                 {
-                    SetSelectedCounter(clearCounter);
+                    SetSelectedCounter(baseCounter);
                 }
             }
             else
@@ -76,7 +88,7 @@ public class Player : MonoBehaviour
         }
     }
 
-    private void SetSelectedCounter(ClearCounter selectedCounter)
+    private void SetSelectedCounter(BaseCounter selectedCounter)
     {
         this.selectedCounter = selectedCounter;
         OnSelectedCounterChanged?.Invoke(this, new OnSelectedCounterChangedEventArgs
@@ -105,7 +117,7 @@ public class Player : MonoBehaviour
         if (!canMove) // Handle cases where we cannot move diagonal, but maybe in one direction.
         {
             Vector3 moveDirX = new Vector3(moveDir.x, 0, 0).normalized;
-            canMove = !Physics.CapsuleCast(transform.position, transform.position + Vector3.up * playerHeight, playerRadius, moveDirX, moveDistance);
+            canMove = moveDir.x != 0 &&  !Physics.CapsuleCast(transform.position, transform.position + Vector3.up * playerHeight, playerRadius, moveDirX, moveDistance);
             if (canMove)
             {
                 moveDir = moveDirX;
@@ -113,7 +125,7 @@ public class Player : MonoBehaviour
             else
             {
                 Vector3 moveDirZ = new Vector3(0, 0, moveDir.z).normalized;
-                canMove = !Physics.CapsuleCast(transform.position, transform.position + Vector3.up * playerHeight, playerRadius, moveDirZ, moveDistance);
+                canMove = moveDir.z != 0 && !Physics.CapsuleCast(transform.position, transform.position + Vector3.up * playerHeight, playerRadius, moveDirZ, moveDistance);
                 if (canMove)
                 {
                     moveDir = moveDirZ;
@@ -130,4 +142,18 @@ public class Player : MonoBehaviour
         transform.forward = Vector3.Slerp(transform.forward, moveDir, Time.deltaTime * rotateSpeed);
 
     }
+
+    public Transform GetKitchenObjectFollowTransform()
+    {
+        return KitchenObjectHoldPoint;
+    }
+
+    public void SetKitchenObject(KitchenObject kitchenObject)
+    {
+        this.kitchenObject = kitchenObject;
+    }
+
+    public KitchenObject GetKitchenObject() { return kitchenObject; }
+    public void ClearKitchenObject() { kitchenObject = null; }
+    public bool HasKitchenObject() { return kitchenObject != null; }
 }
